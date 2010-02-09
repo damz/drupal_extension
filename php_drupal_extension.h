@@ -22,7 +22,7 @@ PHP_RSHUTDOWN_FUNCTION(drupal_extension);
 PHP_MINFO_FUNCTION(drupal_extension);
 
 PHP_FUNCTION(check_plain);
-PHP_FUNCTION(drupal_static);
+PHP_FUNCTION(drupal_static_experimental);
 
 ZEND_BEGIN_MODULE_GLOBALS(drupal_extension)
 	zval *drupal_static_zdata;

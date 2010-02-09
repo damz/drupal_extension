@@ -34,7 +34,7 @@ ZEND_END_ARG_INFO()
  */
 zend_function_entry drupal_extension_functions[] = {
 	PHP_FE(check_plain, arginfo_check_plain)
-	PHP_FE(drupal_static,	arginfo_drupal_static)
+	PHP_FE(drupal_static_experimental,	arginfo_drupal_static)
 	{NULL, NULL, NULL}	/* Must be the last line in drupal_extension_functions[] */
 };
 /* }}} */
@@ -143,7 +143,7 @@ PHP_FUNCTION(check_plain)
 
 /* {{{ proto string drupal_static(string arg)
    Experimental implementation of drupal_static */
-PHP_FUNCTION(drupal_static)
+PHP_FUNCTION(drupal_static_experimental)
 {
 	zval *name = NULL;
 	zval *zdeft = NULL;
