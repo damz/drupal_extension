@@ -37,4 +37,3 @@ ZEND_END_MODULE_GLOBALS(drupal_extension)
 #endif
 
 #endif	/* PHP_DRUPAL_EXTENSION_H */
-
