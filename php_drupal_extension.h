@@ -22,11 +22,12 @@ PHP_RSHUTDOWN_FUNCTION(drupal_extension);
 PHP_MINFO_FUNCTION(drupal_extension);
 
 PHP_FUNCTION(check_plain);
-PHP_FUNCTION(drupal_static_experimental);
+PHP_FUNCTION(drupal_static);
 
 ZEND_BEGIN_MODULE_GLOBALS(drupal_extension)
 	zval *drupal_static_zdata;
   zval *drupal_static_zdefault;
+  HashTable *static_cache;
 ZEND_END_MODULE_GLOBALS(drupal_extension)
 
 #ifdef ZTS

@@ -34,7 +34,7 @@ ZEND_END_ARG_INFO()
  */
 zend_function_entry drupal_extension_functions[] = {
 	PHP_FE(check_plain, arginfo_check_plain)
-	PHP_FE(drupal_static_experimental,	arginfo_drupal_static)
+	PHP_FE(drupal_static,	arginfo_drupal_static)
 	{NULL, NULL, NULL}	/* Must be the last line in drupal_extension_functions[] */
 };
 /* }}} */
@@ -78,7 +78,6 @@ static void php_drupal_extension_init_globals(zend_drupal_extension_globals *dru
  */
 PHP_MINIT_FUNCTION(drupal_extension)
 {
-	ZEND_INIT_MODULE_GLOBALS(drupal_extension, php_drupal_extension_init_globals, NULL);
 	return SUCCESS;
 }
 /* }}} */
@@ -96,6 +95,7 @@ PHP_MSHUTDOWN_FUNCTION(drupal_extension)
  */
 PHP_RINIT_FUNCTION(drupal_extension)
 {
+  ZEND_INIT_MODULE_GLOBALS(drupal_extension, php_drupal_extension_init_globals, NULL);
 	return SUCCESS;
 }
 /* }}} */
@@ -143,13 +143,15 @@ PHP_FUNCTION(check_plain)
 
 /* {{{ proto string drupal_static(string arg)
    Experimental implementation of drupal_static */
-PHP_FUNCTION(drupal_static_experimental)
+PHP_FUNCTION(drupal_static)
 {
 	zval *name = NULL;
 	zval *zdeft = NULL;
 	zend_bool reset = 0;
-	zval **drawer;
-	zval *new_drawer;
+	zval **drawer = NULL;
+	zval **default_drawer = NULL;
+	zval *default_new_drawer = NULL;
+	zval *new_drawer = NULL;
 	int arg_len;
 	zval *zdata = DRUPAL_EXTENSION_G(drupal_static_zdata);
 	zval *zdefault = DRUPAL_EXTENSION_G(drupal_static_zdefault);
@@ -159,29 +161,61 @@ PHP_FUNCTION(drupal_static_experimental)
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z|zb", &name, &zdeft, &reset, &arg_len) == FAILURE) {
 		return;
 	}
-
+	
 	if (Z_TYPE_P(name) == IS_NULL) {
-		// TODO: Reset all variables.
-		RETURN_ZVAL(zdata, 0, 0);
+		// TODO: Needs work.
+		zend_hash_clean(Z_ARRVAL_P(zdata));
+		zend_hash_copy(Z_ARRVAL_P(zdata), Z_ARRVAL_P(zdefault), NULL, NULL, sizeof(zval *));
+		return;
 	}
-	else {
-		key = Z_STRVAL_P(name);
-		key_len = Z_STRLEN_P(name);
-	}
+
+	key = Z_STRVAL_P(name);
+	key_len = Z_STRLEN_P(name);
 
 	if (reset) {
-		// TODO: Implement reset.
-		
+		if (zend_hash_find(Z_ARRVAL_P(zdefault), key, key_len + 1, (void **)&default_drawer) != FAILURE) {
+		  zend_hash_update(Z_ARRVAL_P(zdata), key, key_len + 1, default_drawer, sizeof(zval *), NULL);
+		  // TODO: Better way to do this? We need to get the zvals for this key so we can return a reference to it.
+		  zend_hash_find(Z_ARRVAL_P(zdata), key, key_len + 1, (void **)&drawer);
+
+		  zval_add_ref(drawer);
+		  *return_value = **drawer;
+		  return_value->value.ht = HASH_OF(*drawer);
+		  return;
+		}
 	}
-	if (zend_hash_find(Z_ARRVAL_P(zdata), key, key_len + 1, (void**)&zdata) == FAILURE) {
+
+	if (zend_hash_find(Z_ARRVAL_P(zdata), key, key_len + 1, (void **)&drawer) == FAILURE) {
 		// Initialize the value from the defaults.
 		MAKE_STD_ZVAL(new_drawer);
+		MAKE_STD_ZVAL(default_new_drawer);
+
+		// zdeft must be an array.
+		// Apparently in some cases zdeft can be NULL, so we also need to create a zval container for it.
+		// TODO: Check for scalars and convert to array? This won't work if the default value is a scalar.
+		if (zdeft == NULL) {
+			MAKE_STD_ZVAL(zdeft);
+			array_init(zdeft);
+		} else if (Z_TYPE_P(zdeft) == IS_NULL) {
+			array_init(zdeft);
+		} 
+
 		*new_drawer = *zdeft;
+		*default_new_drawer = *zdeft;
+
 		zval_copy_ctor(new_drawer);
+		zval_copy_ctor(default_new_drawer);
 		add_assoc_zval(zdata, key, new_drawer);
-		drawer = &new_drawer;
+		add_assoc_zval(zdefault, key, default_new_drawer);
+
+		zval_add_ref(&new_drawer);
+		*return_value = *new_drawer;
+		return_value->value.ht = HASH_OF(new_drawer);
+		return;
 	}
-	RETURN_ZVAL(*drawer, 0, 0);
+
+	*return_value = **drawer;
+	return_value->value.ht = HASH_OF(*drawer);
 }
 /* }}} */
 
