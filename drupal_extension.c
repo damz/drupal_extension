@@ -189,7 +189,6 @@ PHP_FUNCTION(drupal_static)
 		// Initialize the value from the defaults.
 		MAKE_STD_ZVAL(new_drawer);
 		MAKE_STD_ZVAL(default_new_drawer);
-
 		// zdeft must be an array.
 		// Apparently in some cases zdeft can be NULL, so we also need to create a zval container for it.
 		// TODO: Check for scalars and convert to array? This won't work if the default value is a scalar.
