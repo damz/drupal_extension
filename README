@@ -1,4 +1,3 @@
-
  This extension adds C implementations to the frequently used Drupal check_plain and drupal_static functions.
 
  drupal_static is still experimental and it should not be used in production until you've thoroughly tested it.
@@ -11,8 +10,8 @@
  INSTALLATION:
  1) Run phpize in the extension's directory.
  2) Run ./configure;make;make test;make install
- 3) Uncomment the check_plain and drupal_static functions in includes/bootstrap.inc in Drupal's directory. 
-    *do not* uncomment the drupal_static_reset() function.
+ 3) Comment out the check_plain and drupal_static functions in includes/bootstrap.inc in Drupal's directory. 
+    *do not* comment out the drupal_static_reset() function.
  4) Restart your web server for the changes to take effect. 
 
  Does this extension work for you?
