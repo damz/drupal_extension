@@ -14,5 +14,4 @@
     *do not* comment out the drupal_static_reset() function.
  4) Restart your web server for the changes to take effect. 
 
- Does this extension work for you?
- Please report success or failure to dhthwy@gmail.com and include your PHP version. phpinfo() output will be useful too.
+ Note: project will soon be hosted at Drupal's site and issues will be handled on that issue queue.
