@@ -177,6 +177,7 @@ PHP_FUNCTION(drupal_static)
 		zend_hash_clean(zdata);
 		zend_hash_copy(zdata, zdefault, NULL, NULL, sizeof(zval *));
 		return;
+
 	} else if (Z_TYPE_P(name) != IS_STRING) {
 		// name holds the key and must be a string if not NULL. We have to bail out here to prevent segfaults and other horrors.
 		convert_to_string(name);
@@ -222,10 +223,6 @@ PHP_FUNCTION(drupal_static)
 			zval_copy_ctor(new_drawer);
 			zend_hash_quick_update(zdata, key, key_len, computed_key, &new_drawer, sizeof(zval *), (void **)&drawer);
 
-			SEPARATE_ZVAL_TO_MAKE_IS_REF(drawer);
-			zval_add_ref(drawer);
-			*return_value_ptr = *drawer;
-			return;
 		} else {
 			// Shouldn't happen. If the key was stored and the key in the default array is now missing then we have a problem.
 			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Can't reset key (%s). Default value not found!", key);
