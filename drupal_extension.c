@@ -67,10 +67,12 @@ ZEND_GET_MODULE(drupal_extension)
  */
 static void php_drupal_extension_init_globals(zend_drupal_extension_globals *drupal_extension_globals)
 {
-	MAKE_STD_ZVAL(drupal_extension_globals->drupal_static_zdata);
-	array_init(drupal_extension_globals->drupal_static_zdata);
-	MAKE_STD_ZVAL(drupal_extension_globals->drupal_static_zdefault);
-	array_init(drupal_extension_globals->drupal_static_zdefault);
+	// ALlocate memory and initialize hash tables for each page request.
+	ALLOC_HASHTABLE(drupal_extension_globals->drupal_static_zdata);
+	ALLOC_HASHTABLE(drupal_extension_globals->drupal_static_zdefault);
+
+	zend_hash_init(drupal_extension_globals->drupal_static_zdata, 0, NULL, NULL, 0);
+	zend_hash_init(drupal_extension_globals->drupal_static_zdefault, 0, NULL, NULL, 0);
 }
 /* }}} */
 
@@ -90,21 +92,27 @@ PHP_MSHUTDOWN_FUNCTION(drupal_extension)
 }
 /* }}} */
 
-/* Remove if there's nothing to do at request start */
 /* {{{ PHP_RINIT_FUNCTION
  */
 PHP_RINIT_FUNCTION(drupal_extension)
 {
-  ZEND_INIT_MODULE_GLOBALS(drupal_extension, php_drupal_extension_init_globals, NULL);
+	// Initialize arrays to hold static variables on a per page request basis.
+	// Doing this in MINIT will make the same arrays persistent across multiple requests which is probably not wanted.
+	ZEND_INIT_MODULE_GLOBALS(drupal_extension, php_drupal_extension_init_globals, NULL)
 	return SUCCESS;
 }
 /* }}} */
 
-/* Remove if there's nothing to do at request end */
 /* {{{ PHP_RSHUTDOWN_FUNCTION
  */
 PHP_RSHUTDOWN_FUNCTION(drupal_extension)
 {
+	zend_hash_destroy(DRUPAL_EXTENSION_G(drupal_static_zdata));
+	zend_hash_destroy(DRUPAL_EXTENSION_G(drupal_static_zdefault));
+
+	FREE_HASHTABLE(DRUPAL_EXTENSION_G(drupal_static_zdata));
+	FREE_HASHTABLE(DRUPAL_EXTENSION_G(drupal_static_zdefault));
+
 	return SUCCESS;
 }
 /* }}} */
@@ -146,75 +154,90 @@ PHP_FUNCTION(check_plain)
 PHP_FUNCTION(drupal_static)
 {
 	zval *name = NULL;
-	zval *zdeft = NULL;
-	zend_bool reset = 0;
 	zval **drawer = NULL;
 	zval **default_drawer = NULL;
-	zval *default_new_drawer = NULL;
 	zval *new_drawer = NULL;
-	int arg_len;
-	zval *zdata = DRUPAL_EXTENSION_G(drupal_static_zdata);
-	zval *zdefault = DRUPAL_EXTENSION_G(drupal_static_zdefault);
+	zval *zdeft = NULL;
+	zend_bool reset = 0;
+	HashTable *zdata = DRUPAL_EXTENSION_G(drupal_static_zdata);
+	HashTable *zdefault = DRUPAL_EXTENSION_G(drupal_static_zdefault);
 	char *key = NULL;
 	int key_len = 0;
+	int arg_len; // Currently only used for zend_parse_parameters().
+	ulong computed_key; 
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z|zb", &name, &zdeft, &reset, &arg_len) == FAILURE) {
-		return;
+		RETURN_FALSE;
 	}
 	
 	if (Z_TYPE_P(name) == IS_NULL) {
-		// TODO: Needs work.
-		zend_hash_clean(Z_ARRVAL_P(zdata));
-		zend_hash_copy(Z_ARRVAL_P(zdata), Z_ARRVAL_P(zdefault), NULL, NULL, sizeof(zval *));
+		// TODO: Finish implementing. Likely need to iterate thru the entire list of keys and call the zval destructor on each value.
+		// Calling zend_hash_clean before destructing its zval containers that were tied to PHP script variables will probably lead to problems. 
+		RETURN_TRUE;
+		zend_hash_clean(zdata);
+		zend_hash_copy(zdata, zdefault, NULL, NULL, sizeof(zval *));
 		return;
+	} else if (Z_TYPE_P(name) != IS_STRING) {
+		// name holds the key and must be a string if not NULL. We have to bail out here to prevent segfaults and other horrors.
+		convert_to_string(name);
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid key (%s) specified. Key must be a string", Z_STRVAL_P(name));
+		RETURN_FALSE;
 	}
 
 	key = Z_STRVAL_P(name);
-	key_len = Z_STRLEN_P(name);
+	key_len = Z_STRLEN_P(name) + 1; // Hash functions want the entire string size including its trailing NULL character.
 
-	if (reset) {
-		if (zend_hash_find(Z_ARRVAL_P(zdefault), key, key_len + 1, (void **)&default_drawer) != FAILURE) {
-		  zend_hash_update(Z_ARRVAL_P(zdata), key, key_len + 1, default_drawer, sizeof(zval *), NULL);
-		  // TODO: Better way to do this? We need to get the zvals for this key so we can return a reference to it.
-		  zend_hash_find(Z_ARRVAL_P(zdata), key, key_len + 1, (void **)&drawer);
+	// Pre-compute the key's hash value so we can use the hash quick functions.
+	computed_key = zend_get_hash_value(key, key_len);
 
-		  zval_add_ref(drawer);
-		  *return_value = **drawer;
-		  return_value->value.ht = HASH_OF(*drawer);
-		  return;
-		}
-	}
-
-	if (zend_hash_find(Z_ARRVAL_P(zdata), key, key_len + 1, (void **)&drawer) == FAILURE) {
-		// Initialize the value from the defaults.
-		MAKE_STD_ZVAL(new_drawer);
-		MAKE_STD_ZVAL(default_new_drawer);
-		// zdeft must be an array.
-		// Apparently in some cases zdeft can be NULL, so we also need to create a zval container for it.
-		// TODO: Check for scalars and convert to array? This won't work if the default value is a scalar.
+	if (zend_hash_quick_find(zdata, key, key_len, computed_key, (void **)&drawer) == FAILURE) {
+		// drawer should be NULL if we got here, but there was a segfault and re-setting drawer to NULL seemed to fix it.
+		drawer = NULL;
+		// Handle the case where no default value was given.
 		if (zdeft == NULL) {
-			MAKE_STD_ZVAL(zdeft);
-			array_init(zdeft);
-		} else if (Z_TYPE_P(zdeft) == IS_NULL) {
-			array_init(zdeft);
-		} 
-
+			// zdeft gets initialized when the caller sets the returned reference to a value (array, scalar, etc).
+			zdeft = EG(uninitialized_zval_ptr);
+    		} 
+		
+		zval_add_ref(&zdeft);
+		// Create a copy of the default value for the zdata array.
+		MAKE_STD_ZVAL(new_drawer);
 		*new_drawer = *zdeft;
-		*default_new_drawer = *zdeft;
-
 		zval_copy_ctor(new_drawer);
-		zval_copy_ctor(default_new_drawer);
-		add_assoc_zval(zdata, key, new_drawer);
-		add_assoc_zval(zdefault, key, default_new_drawer);
 
-		zval_add_ref(&new_drawer);
-		*return_value = *new_drawer;
-		return_value->value.ht = HASH_OF(new_drawer);
-		return;
+		// Drawer is now a pointer to the newly stored value.
+		zend_hash_quick_add(zdata, key, key_len, computed_key, &new_drawer, sizeof(zval *), (void **)&drawer);
+ 		zend_hash_quick_add(zdefault, key, key_len, computed_key, &zdeft, sizeof(zval *), NULL);
 	}
+    
+	if (reset) {
+		if (zend_hash_quick_find(zdefault, key, key_len, computed_key, (void **)&default_drawer) != FAILURE) {
+			// Free memory associated with the to-be-replaced key in the zdata array.
+			zval_ptr_dtor(drawer);
+			drawer = NULL;
 
-	*return_value = **drawer;
-	return_value->value.ht = HASH_OF(*drawer);
+                        // Create a copy of the default value stored for this key and put it in the zdata array.
+			MAKE_STD_ZVAL(new_drawer);
+			*new_drawer = **default_drawer;
+			zval_copy_ctor(new_drawer);
+			zend_hash_quick_update(zdata, key, key_len, computed_key, &new_drawer, sizeof(zval *), (void **)&drawer);
+
+			SEPARATE_ZVAL_TO_MAKE_IS_REF(drawer);
+			zval_add_ref(drawer);
+			*return_value_ptr = *drawer;
+			return;
+		} else {
+			// Shouldn't happen. If the key was stored and the key in the default array is now missing then we have a problem.
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Can't reset key (%s). Default value not found!", key);
+			RETURN_FALSE;
+		}	
+	} 
+
+	// Make the stored value a reference so PHP's garbage collector doesn't delete it.
+	SEPARATE_ZVAL_TO_MAKE_IS_REF(drawer);
+	zval_add_ref(drawer);
+	// Return a reference to the stored value.
+	*return_value_ptr = *drawer;
 }
 /* }}} */
 

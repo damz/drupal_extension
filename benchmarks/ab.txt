@@ -1,0 +1,69 @@
+
+Test setup information:
+Two 2.6ghz dual core 2GB RAM Ubuntu servers on a local LAN (wired to 100MB ports on a linksys switch).
+
+One server serving the Drupal database - MySQL 5.1 with Innodb.
+-- Database lived in memory (tmpfs).
+
+One server serving Drupal - Nginx with fast CGI.
+-- Drupal lived in memory (tmpfs).
+-- Drupal caching was enabled.
+-- APC caching was enabled for PHP.
+-- Nginx served images/js/css files directly.
+-- 10 PHP processes spawned for fast CGI.
+-- Drupal installed with the standard profile - no additional modules enabled.
+-- A single article was created for the frontpage.
+
+Multiple AB runs were done at 10k requests and 10 concurrency. AB results shown below were recorded
+when 'Requests per second' matched the majority of the 'Requests per second' result from other runs.
+Other concurrency levels (as well as more fast CGI PHP processes) were tested with a similar pattern (~10 requests/sec improvement).
+
+Note: The bottleneck in this test was PHP. MySQL itself handled the requests without breaking a sweat.
+Mtop reported very low loads and top reported MySQL using only 5% CPU give or take a little.
+Ping also reported healthy response times during the tests ( 0-1 MS with zero packet loss ).
+
+Your results may vary.
+
+AB test results:
+
+*With extension:
+
+Server Software:        nginx/0.7.65
+Server Hostname:        192.168.1.103
+Server Port:            80
+
+Document Path:          /
+Document Length:        4912 bytes
+
+Concurrency Level:      10
+Time taken for tests:   26.692 seconds
+Complete requests:      10000
+Failed requests:        0
+Write errors:           0
+Total transferred:      53070000 bytes
+HTML transferred:       49120000 bytes
+Requests per second:    374.64 [#/sec] (mean)
+Time per request:       26.692 [ms] (mean)
+Time per request:       2.669 [ms] (mean, across all concurrent requests)
+Transfer rate:          1941.63 [Kbytes/sec] received
+
+*Without extension:
+
+Server Software:        nginx/0.7.65
+Server Hostname:        192.168.1.103
+Server Port:            80
+
+Document Path:          /
+Document Length:        4912 bytes
+
+Concurrency Level:      10
+Time taken for tests:   27.323 seconds
+Complete requests:      10000
+Failed requests:        0
+Write errors:           0
+Total transferred:      53070000 bytes
+HTML transferred:       49120000 bytes
+Requests per second:    366.00 [#/sec] (mean)
+Time per request:       27.323 [ms] (mean)
+Time per request:       2.732 [ms] (mean, across all concurrent requests)
+Transfer rate:          1896.82 [Kbytes/sec] received

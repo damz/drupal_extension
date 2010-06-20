@@ -24,11 +24,10 @@ PHP_MINFO_FUNCTION(drupal_extension);
 PHP_FUNCTION(check_plain);
 PHP_FUNCTION(drupal_static);
 
-ZEND_BEGIN_MODULE_GLOBALS(drupal_extension)
-	zval *drupal_static_zdata;
-  zval *drupal_static_zdefault;
-  HashTable *static_cache;
-ZEND_END_MODULE_GLOBALS(drupal_extension)
+ZEND_BEGIN_MODULE_GLOBALS(drupal_extension) 
+  HashTable *drupal_static_zdata;
+  HashTable *drupal_static_zdefault;
+ZEND_END_MODULE_GLOBALS(drupal_extension) 
 
 #ifdef ZTS
 #define DRUPAL_EXTENSION_G(v) TSRMG(drupal_extension_globals_id, zend_drupal_extension_globals *, v)
@@ -37,3 +36,4 @@ ZEND_END_MODULE_GLOBALS(drupal_extension)
 #endif
 
 #endif	/* PHP_DRUPAL_EXTENSION_H */
+

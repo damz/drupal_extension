@@ -6,23 +6,41 @@ Test basic drupal_static() functionnality
 <?php 
 $ret = &drupal_static("test", array());
 if (is_array($ret) && empty($ret)) {
-  echo "Initial value is preserved.\n";
+  echo "Initial array value is preserved.\n";
 }
 
 $ret['test_value'] = 'toto';
 $ret2 = &drupal_static("test", array());
 if (isset($ret2['test_value']) && $ret2['test_value'] == 'toto') {
-  echo "Stored value is preserved.\n";
+  echo "Stored array value is preserved.\n";
 }
 
 $ret = &drupal_static('test', NULL, TRUE);
 if (is_array($ret) && empty($ret)) {
-  echo "Reset key successful.\n";
+  echo "Reset key with array value successful.\n";
+}
+
+$ret = &drupal_static('test_scalar', 'default');
+if (is_scalar($ret) && $ret == 'default') {
+  echo "Initial scalar value is preserved.\n";
+}
+
+$ret = 'default_changed';
+$ret2 = &drupal_static('test_scalar');
+if (is_scalar($ret2) && $ret2 == 'default_changed') {
+  echo "Stored scalar value is preserved.\n";
+}
+
+$ret = &drupal_static('test_scalar', NULL, TRUE);
+if (is_scalar($ret) && $ret == 'default') {
+  echo "Reset key with scalar value successful.\n";
 }
 
 $ret = &drupal_static('test2', NULL);
-if (is_array($ret) && empty($ret)) {
-  echo "Initial value with NULL as default is preserved.\n";
+$ret['foo_key'] = 'foo_value';
+$ret = &drupal_static('test2');
+if (is_array($ret) && isset($ret['foo_key']) && $ret['foo_key'] == 'foo_value') {
+  echo "Passed test with NULL as default.\n";
 }
 
 $failed = FALSE;
@@ -72,8 +90,11 @@ function get_rand_str() {
 
 ?>
 --EXPECT--
-Initial value is preserved.
-Stored value is preserved.
-Reset key successful.
-Initial value with NULL as default is preserved.
+Initial array value is preserved.
+Stored array value is preserved.
+Reset key with array value successful.
+Initial scalar value is preserved.
+Stored scalar value is preserved.
+Reset key with scalar value successful.
+Passed test with NULL as default.
 Passed loop stability test.
